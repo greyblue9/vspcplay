@@ -13,11 +13,11 @@ OBJS = apu.o globals.o libspc.o soundux.o spc700.o main.o font.o sdlfont.o id666
 SOURCES := $(shell find $(srcdir) "(" -name "*.c" -o -name "*.c[cxp]" -o -name "*.c[cxp][xcp]" ")")
 $(info  SOURCES := $(SOURCES))
 
-MAIN_SOURCES := $(shell find $(srcdir) "(" -name "*.c" -o -name "*.c[cxp]" -o -name "*.c[cxp][xcp]" ")" -exec ctags -x "{}" + | grep -Ee $$'^main[\t ]+function[\t ]' | col2tsv | cut -f 4; )
+MAIN_SOURCES := $(shell find $(srcdir) -name "*.c" -exec ctags -x "{}" + | grep -Ee $$'^main[\t ]+function[\t ]' | sed -r 's![\t ]+!\t!g' | cut -f 4; )
 $(info  MAIN_SOURCES := $(MAIN_SOURCES))
 
 
-OBJECTS := $(subst $(srcdir),$(builddir),$(subst .cc ,.o ,$(subst $(srcdir),$(builddir),$(subst .cxx ,.o ,$(subst $(srcdir),$(builddir),$(subst .cpp ,.o ,$(subst $(srcdir),$(builddir),$(subst .c ,.o ,$(SOURCES) )) )) )) ))
+OBJECTS := $(subst __bd__,$(builddir),$(subst $(srcdir),$(builddir),$(subst $(builddir),__bd__,$(subst $(builddir),__bd__,$(subst .cc ,.o ,$(subst $(builddir),__bd__,$(subst .cxx ,.o ,$(subst $(srcdir),$(builddir),$(subst $(builddir),__bd__,$(subst .cpp ,.o ,$(subst $(srcdir),$(builddir),$(subst $(builddir),__bd__,$(subst .c ,.o ,$(SOURCES) ) )) )) ))))))))
 $(info  OBJECTS := $(OBJECTS))
 
 MAIN_OBJECTS := $(OBJECTS)
@@ -37,21 +37,21 @@ SYMLINKS := $(builddir)/src/tdrecord $(builddir)/src/tdreplay $(builddir)/src/td
 
 
 $(builddir)/%.o: $(srcdir)/%.c
-	$(CC) $(INCLUDES) $(CFLAGS) -c @$(builddir)/build.rsp -o $(@) $(^)
+	$(CC) $(INCLUDES) $(CFLAGS) -c -o $(@) $(^)
 
 $(builddir)/%.o: $(srcdir)/%.cpp
-	$(CXX) $(INCLUDES) $(CFLAGS) $(CXXFLAGS) -c @$(builddir)/build.rsp -o $(@) $(^)
+	$(CXX) $(INCLUDES) $(CFLAGS) $(CXXFLAGS) -c -o $(@) $(^)
 $(builddir)/%.o: $(srcdir)/%.cxx
-	$(CXX) $(INCLUDES) $(CFLAGS) $(CXXFLAGS) -c @$(builddir)/build.rsp -o $(@) $(^)
+	$(CXX) $(INCLUDES) $(CFLAGS) $(CXXFLAGS) -c -o $(@) $(^)
 $(builddir)/%.o: $(srcdir)/%.cc
-	$(CXX) $(INCLUDES) $(CFLAGS) $(CXXFLAGS) -c @$(builddir)/build.rsp -o $(@) $(^)
+	$(CXX) $(INCLUDES) $(CFLAGS) $(CXXFLAGS) -c -o $(@) $(^)
 $(builddir)/%: $(builddir)/%.o $(OBJECTS)
-	$(CXX) -fuse-ld=gold $(LDFLAGS) @$(builddir)/build.rsp -o $(firstword $(@)) $(firstword $(^)) -Wl,--start-group,--as-needed $(OBJECTS) -Wl,--end-group @"/external_sd/src/make_files/build.allrsp_static.rsp" $(LDFLAGS) -pthread -Wl,--weak-unresolved-symbols,-z,muldefs
+	$(CXX) -fuse-ld=gold $(LDFLAGS) @$(builddir)/build.rsp -o $(firstword $(@)) $(firstword $(^)) -Wl,--start-group,--as-needed $(OBJECTS) -Wl,--end-group  $(LDFLAGS) -pthread -Wl,--weak-unresolved-symbols,-z,muldefs
 	chmod 0755 $(firstword $(@))
 	ll --color=always $(firstword $(@))
 
 $(firstword $(MAIN_PROGRAMS)):: $(OBJECTS) $(MAIN_OBJECTS)
-	$(CXX) -fuse-ld=gold $(LDFLAGS) @$(builddir)/build.rsp -o $(firstword $(@)) $(firstword $(^)) -Wl,--start-group,--as-needed $(OBJECTS) -Wl,--end-group @"/external_sd/src/make_files/build.allrsp_static.rsp" $(LDFLAGS) -pthread -Wl,--weak-unresolved-symbols,-z,muldefs
+	$(CXX) -fuse-ld=gold $(LDFLAGS) @$(builddir)/build.rsp -o $(firstword $(@)) $(firstword $(^)) -Wl,--start-group,--as-needed $(OBJECTS) -Wl,--end-group $(LDFLAGS) -pthread -Wl,--weak-unresolved-symbols,-z,muldefs
 	chmod 0755 $(firstword $(@))
 	ll --color=always $(firstword $(@))
 
