@@ -18,10 +18,10 @@ if [[ ! -e "${script}" ]]; then
 else
   script="$( readlink -f "${script}"; )"
 fi
-: ${srcdir:=${srcdir:-${script%%*([/])+([!/])}}}
 builddir="$( pwd )"
+[ "x${arg0%configure}" != "x$arg0" ] && srcdir="${arg0%/*}"
+[ "x${script%configure}" != "x$script" ] && srcdir="${script%/*}"
 srcdir="$( realpath "${srcdir}"; )"
-srcdir="${srcdir%/*}"
 cd "${builddir}" || exit 126
 
 export srcdir="${srcdir}" builddir="${builddir}" top_srcdir="${srcdir}" top_builddir="${builddir}"
