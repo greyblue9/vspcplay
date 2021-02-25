@@ -1,0 +1,71 @@
+
+VPATH := @srcdir@/
+srcdir := @srcdir@
+builddir := @builddir@
+
+CFLAGS=-O3 -funroll-loops -Wall -I../../src `sdl-config --cflags` -Wall
+LDFLAGS=`sdl-config --libs` -lm
+
+PROG=vspcplay
+
+OBJS = apu.o globals.o libspc.o soundux.o spc700.o main.o font.o sdlfont.o id666.o
+
+SOURCES := $(shell find $(srcdir) "(" -name "*.c" -o -name "*.c[cxp]" -o -name "*.c[cxp][xcp]" ")")
+$(info  SOURCES := $(SOURCES))
+
+MAIN_SOURCES := $(shell find $(srcdir) "(" -name "*.c" -o -name "*.c[cxp]" -o -name "*.c[cxp][xcp]" ")" -exec ctags -x "{}" + | grep -Ee $$'^main[\t ]+function[\t ]' | col2tsv | cut -f 4; )
+$(info  MAIN_SOURCES := $(MAIN_SOURCES))
+
+
+OBJECTS := $(subst $(srcdir),$(builddir),$(subst .cc ,.o ,$(subst $(srcdir),$(builddir),$(subst .cxx ,.o ,$(subst $(srcdir),$(builddir),$(subst .cpp ,.o ,$(subst $(srcdir),$(builddir),$(subst .c ,.o ,$(SOURCES) )) )) )) ))
+$(info  OBJECTS := $(OBJECTS))
+
+MAIN_OBJECTS := $(OBJECTS)
+$(info  MAIN_OBJECTS := $(MAIN_OBJECTS))
+
+MAIN_PROGRAMS := $(builddir)/vspcplay
+$(info  MAIN_PROGRAMS := $(MAIN_PROGRAMS))
+
+SYMLINK_TARGET := $(notdir $(firstword $(MAIN_PROGRAMS)))
+
+
+# _______________ Set special include paths here if needed _______________
+
+INCLUDES := -I/usr/include/cairo -I/usr/include/pango-1.0 -I/external_sd/src/glib/2.64.1/src -I/usr/include/harfbuzz -idirafter/usr/include/glib-2.0
+SYMLINKS := $(builddir)/src/tdrecord $(builddir)/src/tdreplay $(builddir)/src/tdrerecord $(builddir)/src/tdview $(builddir)/src/tdcompare
+# _________________________________________________________________________
+
+
+$(builddir)/%.o: $(srcdir)/%.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c @$(builddir)/build.rsp -o $(@) $(^)
+
+$(builddir)/%.o: $(srcdir)/%.cpp
+	$(CXX) $(INCLUDES) $(CFLAGS) $(CXXFLAGS) -c @$(builddir)/build.rsp -o $(@) $(^)
+$(builddir)/%.o: $(srcdir)/%.cxx
+	$(CXX) $(INCLUDES) $(CFLAGS) $(CXXFLAGS) -c @$(builddir)/build.rsp -o $(@) $(^)
+$(builddir)/%.o: $(srcdir)/%.cc
+	$(CXX) $(INCLUDES) $(CFLAGS) $(CXXFLAGS) -c @$(builddir)/build.rsp -o $(@) $(^)
+$(builddir)/%: $(builddir)/%.o $(OBJECTS)
+	$(CXX) -fuse-ld=gold $(LDFLAGS) @$(builddir)/build.rsp -o $(firstword $(@)) $(firstword $(^)) -Wl,--start-group,--as-needed $(OBJECTS) -Wl,--end-group @"/external_sd/src/make_files/build.allrsp_static.rsp" $(LDFLAGS) -pthread -Wl,--weak-unresolved-symbols,-z,muldefs
+	chmod 0755 $(firstword $(@))
+	ll --color=always $(firstword $(@))
+
+$(firstword $(MAIN_PROGRAMS)):: $(OBJECTS) $(MAIN_OBJECTS)
+	$(CXX) -fuse-ld=gold $(LDFLAGS) @$(builddir)/build.rsp -o $(firstword $(@)) $(firstword $(^)) -Wl,--start-group,--as-needed $(OBJECTS) -Wl,--end-group @"/external_sd/src/make_files/build.allrsp_static.rsp" $(LDFLAGS) -pthread -Wl,--weak-unresolved-symbols,-z,muldefs
+	chmod 0755 $(firstword $(@))
+	ll --color=always $(firstword $(@))
+
+$(builddir)/src/td%:
+	ln -s $(SYMLINK_TARGET) $(@)
+
+
+$(info SYMLINKS := $(SYMLINKS))
+$(info SYMLINK_TARGET := $(SYMLINK_TARGET))
+
+all: $(MAIN_PROGRAMS) $(MAIN_OBJECTS) symlinks
+symlinks: $(firstword $(MAIN_PROGRAMS)) $(SYMLINKS)
+
+
+
+.PHONY: all install
+

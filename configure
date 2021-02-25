@@ -1,0 +1,76 @@
+
+typeset script="$_" arg0="$0"
+if [ "${script##*/}" = env ]; then
+  script="$arg0"
+  arg0=""
+fi
+if [[ ! -e "${script}" ]]; then
+  script="${ whence -p "${script}"; }"
+else
+  script="${ readlink -f "${script}"; }"
+fi
+: ${srcdir:=${srcdir:-${script%%*([/])+([!/])}}}
+: ${builddir:=${builddir:-${ builtin pwd; }}}
+srcdir="${ builtin realpath "${srcdir}" }"; srcdir="${srcdir%%*(@(/|/.))}"
+builddir="${ builtin realpath "${builddir}" }"; builddir="${builddir%%*(@(/|/.))}"
+mkdir -p "${builddir}"
+cd "${builddir}" || exit 126
+
+export srcdir="${srcdir}" builddir="${builddir}" top_srcdir="${srcdir}" top_builddir="${builddir}"
+
+
+builtin print -r -- "script: ${script}" 1>&2
+builtin print -r -- "arg0: ${arg0}" 1>&2
+builtin print -r -- "builddir: ${builddir}" 1>&2
+
+
+mkdir -p "${builddir}";
+
+n_srcdir=${#srcdir}
+IFS=$'\n'; set -A config_files -- ${ find "${srcdir}" -type f -a -name "*.in" | cut -c $(( n_srcdir+2 ))-; };
+builtin print -r -- "config_files: ${ typeset -p -a config_files 2>&1 | sed -s -r -e 's~^typeset [^=]+=~~; 1h; 1!H; $!d; x; s~\n~ ~g;' }" 1>&2
+for config_file in "${config_files[@]}"; do
+  input_file="${srcdir}/${config_file}"
+  output_file="${builddir}/${config_file%%.in}"
+  builtin print -r -- "Generating file: '${output_file@Q}' ..." 1>&2
+  builtin print -r -- "From input file: '${input_file@Q}'" 1>&2
+  output_dir="${output_file%%*([/])+([!/])}"; 
+  mkdir -p "${output_dir}";
+  IFS=$'\n'; set -A lines -- ${ sed -s -u -r "${input_file@Q}" -e '
+    :a \~@([a-zA-Z_][a-zA-Z0-9_]*)@~!{ bz; };
+    :b s~^(.*)@([a-zA-Z0-9_]+)@(.*)$~@\2@\n\1%%\3~;
+      s~^@([a-zA-Z0-9_]+)@~s%__at__\1__at__%${\1}%g\n  tstart~;
+      ta;
+    :z \~\n~{
+      s~\n[^\n]*$~~;
+      tk;
+    };
+    d;
+    :k s~__at__~@~g;
+    ' \
+  | sed -s -r -e '1i\:start' \
+  ; };
+  
+  IFS=$''; for ln in "${lines[@]}"; do
+    ln_var="${ln##*\%\@}"; ln_var="${ln_var%%\@\%*}";
+    if [[ "${ln_var}" != ?("${ln}") ]]; then
+      builtin print -r -- "Variable substitution: ${ln_var@Q}" 1>&2
+      typeset +n val; unset val
+      typeset -n val="${ln_var}"
+      builtin print -r -- "Variable value:        ${ln_var} = ${val@Q}" 1>&2
+    fi
+    IFS=$''; builtin eval "builtin print -r -- :${ln}";
+  done \
+    | cut -c 2- \
+    > "${TMPDIR:-${builddir:-.}}/replace_conf_vars.sed"; 
+  
+  sed -r -f "${TMPDIR:-${builddir:-.}}/replace_conf_vars.sed" \
+    -- "${input_file}" \
+     > "${output_file}"
+
+  ls -lA -- "${input_file}" "${output_file}"
+  [[ -f "${output_file}" ]] || exit 124
+done
+
+
+
