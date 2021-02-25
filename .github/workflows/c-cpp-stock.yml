@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: setup
-      run: sudo apt-get install -y libncurses-dev libncursesw5-dev
+      run: sudo apt-get install -y libncurses-dev libncursesw5-dev libsdl1.2-dev
     - name: configure
       run: chmod 0755 configure && mkdir build && cd build && $PWD/../configure
     - name: make
